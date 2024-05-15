@@ -164,6 +164,8 @@
    :enable-uncaught-exception-handler true ;; Java SDK default
    :trace-options-requests true ;; Java SDK default
    :serialization-max-depth 5 ;; default to 5, adjust lower if a circular reference loop occurs.
+   :enable-metrics false ;; Java SDK default
+   :enable-default-tags-for-metrics true ;; Java SDK default
    :enabled true})
 
 (defn ^:private sentry-options
@@ -190,6 +192,9 @@
                  traces-sample-fn
                  trace-options-requests
                  instrumenter
+                 enable-metrics
+                 enable-default-tags-for-metrics
+                 before-emit-metric-callback
                  event-processors
                  enabled]} (merge sentry-defaults config)
          sentry-options (SentryOptions.)]
@@ -239,6 +244,13 @@
                              (reify io.sentry.SentryOptions$BeforeBreadcrumbCallback
                                (execute [_ breadcrumb hint]
                                  (before-breadcrumb-fn breadcrumb hint)))))
+     (.setEnableMetrics sentry-options enable-metrics)
+     (.setEnableDefaultTagsForMetrics sentry-options enable-default-tags-for-metrics)
+     (when before-emit-metric-callback
+       (.setBeforeEmitMetricCallback sentry-options ^boolean
+                             (reify io.sentry.SentryOptions$BeforeEmitMetricCallback
+                               (execute [_ key tags]
+                                 (before-emit-metric-callback key tags)))))
      (when traces-sample-rate
        (.setTracesSampleRate sentry-options traces-sample-rate))
      (when traces-sample-fn
